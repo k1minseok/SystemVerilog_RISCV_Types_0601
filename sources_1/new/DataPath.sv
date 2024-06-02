@@ -21,17 +21,17 @@ module DataPath (
     output logic [31:0] dataMemWData
 );
 
-    // logic [31:0] w_ALUResult, w_RegFileRData1, w_RegFileRData2, w_PC_Data;
-    logic [31:0] w_RegFileRData1, w_RegFileRData2, w_PC_Data;
+    logic [31:0] w_ALUResult, w_RegFileRData1, w_RegFileRData2, w_PCAdderOut;
     logic [31:0] w_extendOut, w_AluSrcMuxOut, w_RFWirteDataSrcMuxOut;
-    logic [31:0] w_PCAdderSrcMuxOut1, w_PCAdderSrcMuxOut2;
+    logic [31:0] w_PCAdderSrcMuxOut, w_PC_Data;
     logic [31:0] w_extendPcAddOut, w_ExtendPcAdderSrcMuxOut;
     logic w_PCAdderSrcMuxSel, w_btaken;
 
 
+    assign dataMemRAddr = w_ALUResult;
     assign dataMemWData = w_RegFileRData2;
 
-    Register U_PC (  // prgram counter
+    Register U_ProgramCounter (  // prgram counter
         .clk  (clk),
         .reset(reset),
         .d    (w_PC_Data),
@@ -40,25 +40,25 @@ module DataPath (
     );
 
     assign w_PCAdderSrcMuxSel = Jbranch | (Bbranch & w_btaken);
-    mux_2x1 U_PCAdderSrcMux1 (
+    mux_2x1 U_MUX_PCAdderSrc (
         .sel(w_PCAdderSrcMuxSel),
         .a  (32'd4),
         .b  (w_extendOut),
 
-        .y(w_PCAdderSrcMuxOut1)
-    );
-
-    mux_2x1 U_PCAdderSrcMux2 (
-        .sel(JIbranch),
-        .a  (instrMemRAddr),
-        .b  (w_RegFileRData2),
-
-        .y(w_PCAdderSrcMuxOut2)
+        .y(w_PCAdderSrcMuxOut)
     );
 
     adder U_Adder_ProgramCounter (
-        .a(w_PCAdderSrcMuxOut1),
-        .b(w_PCAdderSrcMuxOut2),
+        .a(w_PCAdderSrcMuxOut),
+        .b(instrMemRAddr),
+
+        .y(w_PCAdderOut)
+    );
+
+    mux_2x1 U_MUX_PCSrc (
+        .sel(JIbranch),
+        .a  (w_PCAdderOut),
+        .b  (w_ALUResult),
 
         .y(w_PC_Data)
     );
@@ -75,7 +75,7 @@ module DataPath (
         .RData2(w_RegFileRData2)
     );
 
-    mux_2x1 U_ALUSrcMux (
+    mux_2x1 U_MUX_ALUSrc (
         .sel(AluSrcMuxSel),
         .a  (w_RegFileRData2),
         .b  (w_extendOut),
@@ -89,12 +89,12 @@ module DataPath (
         .ALUControl(ALUControl),
 
         .btaken(w_btaken),
-        .result(dataMemRAddr)
+        .result(w_ALUResult)
     );
 
     mux_4x1 U_RFWriteDataSrcMux (
         .sel(RFWriteDataSrcMuxSel),
-        .a  (dataMemRAddr),
+        .a  (w_ALUResult),
         .b  (dataMemRData),
         .c  (w_extendOut),
         .d  (w_extendPcAddOut),
@@ -110,7 +110,7 @@ module DataPath (
         .immext(w_extendOut)
     );
 
-    mux_2x1 U_ExtendPcAdderSrcMux (
+    mux_2x1 U_MUX_ExtendPcAdderSrc (
         .sel(Jbranch),
         .a  (w_extendOut),
         .b  (32'd4),
@@ -118,7 +118,7 @@ module DataPath (
         .y(w_ExtendPcAdderSrcMuxOut)
     );
 
-    adder U_Adder_ExtendPcAdder (
+    adder U_Adder_ExtendPc (
         .a(w_ExtendPcAdderSrcMuxOut),
         .b(instrMemRAddr),
 
@@ -205,11 +205,11 @@ module ALU (
     always_comb begin : comparator
         case (ALUControl[2:0])  // B-Type에서 funct3만 보면 됨
             3'b000:  btaken = (a == b);  // BEQ
-            3'b001:  btaken = (a != b);
-            3'b100:  btaken = (a < b);
-            3'b101:  btaken = (a >= b);
-            3'b110:  btaken = (a < b);
-            3'b111:  btaken = (a <= b);
+            3'b001:  btaken = (a != b);  // BNE
+            3'b100:  btaken = (a < b);  // BLT
+            3'b101:  btaken = (a >= b);  // BGE
+            3'b110:  btaken = (a < b);  // BLTU
+            3'b111:  btaken = (a >= b);  //BGEU
             default: btaken = 1'bx;
         endcase
     end

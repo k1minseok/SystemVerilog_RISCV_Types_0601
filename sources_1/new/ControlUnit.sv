@@ -44,7 +44,7 @@ module ControlUnit (  // only Read
             `OP_TYPE_J:
             controls = 11'b1_x_11_0_100_0_1_0;  // rd = PC + 4; PC+= imm
             `OP_TYPE_JI:
-            controls = 11'b1_x_11_0_000_0_1_1;  // rd = PC + 4; PC = rs1 + imm
+            controls = 11'b1_1_11_0_000_0_1_1;  // rd = PC + 4; PC = rs1 + imm
             default: controls = 10'b0;
         endcase
     end
@@ -76,6 +76,7 @@ module ControlUnit (  // only Read
             `OP_TYPE_S:
             ALUControl = {1'b0, 3'b000};  // S-Type은 무조건 덧셈
             `OP_TYPE_B: ALUControl = {1'b0, funct3};
+            `OP_TYPE_JI: ALUControl = {1'b0, funct3};
             default: ALUControl = 4'bx;
         endcase
     end
