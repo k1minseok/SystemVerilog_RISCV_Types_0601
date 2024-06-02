@@ -72,7 +72,11 @@ module ControlUnit (  // only Read
             end
             `OP_TYPE_IL:
             ALUControl = {1'b0, 3'b000};  // IL-Type은 무조건 덧셈
-            `OP_TYPE_I: ALUControl = {funct7[5], funct3};
+            `OP_TYPE_I: begin       // I-Type Shift 연산과 산술,논리 연산 구분
+                if ((funct3 == 3'b001) || (funct3 == 3'b101))  // Shift 연산
+                    ALUControl = {funct7[5], funct3};
+                else ALUControl = {1'b0, funct3};
+            end
             `OP_TYPE_S:
             ALUControl = {1'b0, 3'b000};  // S-Type은 무조건 덧셈
             `OP_TYPE_B: ALUControl = {1'b0, funct3};

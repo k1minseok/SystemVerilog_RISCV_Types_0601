@@ -102,7 +102,7 @@ module DataPath (
         .y(w_RFWirteDataSrcMuxOut)
     );
 
-    extend U_Extend (
+    extend_imm U_Extend (
         .instr  (machineCode[31:7]),
         // .instr  (machineCode),
         .extType(extType),
@@ -188,16 +188,17 @@ module ALU (
 );
     always_comb begin
         case (ALUControl)
-            `ADD:    result = a + b;
-            `SUB:    result = a - b;
-            `SLL:    result = a << b;
-            `SRL:    result = a >> b;
-            `SRA:    result = a >>> b;
-            `SLT:    result = (a < b) ? 1 : 0;
-            `SLTU:   result = (a < b) ? 1 : 0;
-            `XOR:    result = a ^ b;
-            `OR:     result = a | b;
-            `AND:    result = a & b;
+            `ADD: result = a + b;
+            `SUB: result = a - b;
+            `SLL: result = a << b;
+            `SRL: result = a >> b;
+            `SRA: result = $signed(a) >>> b;
+            // a를 sign으로 캐스팅하여 MSB 복제
+            `SLT: result = ($signed(a) < $signed(b)) ? 1 : 0;
+            `SLTU: result = (a < b) ? 1 : 0;
+            `XOR: result = a ^ b;
+            `OR: result = a | b;
+            `AND: result = a & b;
             default: result = 32'bx;
         endcase
     end
@@ -206,8 +207,8 @@ module ALU (
         case (ALUControl[2:0])  // B-Type에서 funct3만 보면 됨
             3'b000:  btaken = (a == b);  // BEQ
             3'b001:  btaken = (a != b);  // BNE
-            3'b100:  btaken = (a < b);  // BLT
-            3'b101:  btaken = (a >= b);  // BGE
+            3'b100:  btaken = ($signed(a) < $signed(b));  // BLT
+            3'b101:  btaken = ($signed(a) >= $signed(b));  // BGE
             3'b110:  btaken = (a < b);  // BLTU
             3'b111:  btaken = (a >= b);  //BGEU
             default: btaken = 1'bx;
@@ -227,7 +228,7 @@ endmodule
 
 
 // opcode제외 모든 신호 받아 imm bit만 빼내고 이 신호를 32비트로 늘림
-module extend (
+module extend_imm (
     input logic [31:7] instr,
     input logic [ 2:0] extType,
 
@@ -235,8 +236,50 @@ module extend (
 );
     always_comb begin
         case (extType)
-            3'b000:
-            immext = {{21{instr[31]}}, instr[30:20]};  // I-Type           
+            3'b000: begin
+                if ((instr[14:12] == 3'b001) || (instr[14:12] == 3'b101))
+                    immext = {{27{instr[31]}}, instr[24:20]};  // I-Type shift
+                else
+                    immext = {
+                        {21{instr[31]}}, instr[30:20]
+                    };  // I-Type           
+            end
+            3'b001:
+            immext = {{21{instr[31]}}, instr[30:25], instr[11:7]};  // S-Type   
+            3'b010:
+            immext = {
+                {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0
+            };  // B-Type
+            3'b011:
+            immext = {instr[31:12], 12'b0};  // U, UA-Type                     
+            3'b100:
+            immext = {
+                {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0
+            };  // J-Type               
+            default: immext = 32'bx;
+        endcase
+    end
+    // sign bit(최상위 bit) 확장
+    // 양수이면 0으로 확장되고 음수이면 1로 확장됨
+endmodule
+
+
+module extend_dataMemWdata (
+    input logic [31:7] instr,
+    input logic [ 2:0] extType,
+
+    output logic [31:0] immext
+);
+    always_comb begin
+        case (extType)
+            3'b000: begin
+                if ((instr[14:12] == 3'b001) || (instr[14:12] == 3'b101))
+                    immext = {{27{instr[31]}}, instr[24:20]};  // I-Type shift
+                else
+                    immext = {
+                        {21{instr[31]}}, instr[30:20]
+                    };  // I-Type           
+            end
             3'b001:
             immext = {{21{instr[31]}}, instr[30:25], instr[11:7]};  // S-Type   
             3'b010:
