@@ -36,9 +36,13 @@ module InstructionMemory (  // only Read
         rom[22] = 32'h0020b7b3;  // SLTU x15, x1, x2
         rom[23] = 32'h0010a813;  // SLTI x16, x1, 1
         rom[24] = 32'h0010b893;  // SLTIU x17, x1, 1
-        rom[25] = 32'hx;  // 
-        rom[26] = 32'hx;  // 
-        rom[27] = 32'hx;  // 
+        rom[25] = 32'h0FC01903;  // LH x18, 252, x0 => RAM[63]의 -1 가져와서 저장
+        rom[26] = 32'h0FC05983;  // LHU x19, 252, x0
+        rom[27] = 32'h0f802a03;  // LW x20, 248, x0
+        rom[28] = 32'h0F400423;  // SB x20, 232, x0(rs2 : x20)
+        rom[29] = 32'h0f401623;  // SH x20, 236, x0
+        rom[30] = 32'h0f402823;  // SW x20, 240, x0
+        rom[31] = 32'hx;  // 
     end
 
     assign data = rom[addr[31:2]];

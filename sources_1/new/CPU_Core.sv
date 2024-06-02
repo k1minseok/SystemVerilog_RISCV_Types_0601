@@ -16,7 +16,8 @@ module CPU_Core (
     logic w_regFile_wr_en, w_AluSrcMuxSel;
     logic [1:0] w_RFWriteDataSrcMuxSel;
     logic [3:0] w_ALUControl;
-    logic [2:0] w_extType;
+    logic [2:0] w_immExtType, w_dataMemRDataExtType;
+    logic [1:0] w_dataMemWDataTrncType;
     logic w_Bbranch, w_Jbranch, w_JIbranch;
 
     ControlUnit U_ControlUnit (  // only Read
@@ -28,7 +29,9 @@ module CPU_Core (
         .AluSrcMuxSel        (w_AluSrcMuxSel),
         .RFWriteDataSrcMuxSel(w_RFWriteDataSrcMuxSel),
         .dataMem_wr_en       (dataMem_wr_en),
-        .extType             (w_extType),
+        .immExtType          (w_immExtType),
+        .dataMemWDataTrncType(w_dataMemWDataTrncType),
+        .dataMemRDataExtType (w_dataMemRDataExtType),
         .Bbranch             (w_Bbranch),
         .Jbranch             (w_Jbranch),
         .JIbranch            (w_JIbranch),
@@ -43,7 +46,9 @@ module CPU_Core (
         .ALUControl          (w_ALUControl),
         .dataMemRData        (dataMemRData),
         .AluSrcMuxSel        (w_AluSrcMuxSel),
-        .extType             (w_extType),
+        .immExtType          (w_immExtType),
+        .dataMemWDataTrncType(w_dataMemWDataTrncType),
+        .dataMemRDataExtType (w_dataMemRDataExtType),
         .Bbranch             (w_Bbranch),
         .Jbranch             (w_Jbranch),
         .JIbranch            (w_JIbranch),

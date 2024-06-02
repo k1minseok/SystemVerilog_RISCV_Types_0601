@@ -9,7 +9,9 @@ module DataPath (
     input logic        regFile_wr_en,
     input logic [ 3:0] ALUControl,
     input logic [31:0] dataMemRData,
-    input logic [ 2:0] extType,
+    input logic [ 2:0] immExtType,
+    input logic [ 1:0] dataMemWDataTrncType,
+    input logic [ 2:0] dataMemRDataExtType,
     input logic        AluSrcMuxSel,
     input logic [ 1:0] RFWriteDataSrcMuxSel,
     input logic        Bbranch,
@@ -25,11 +27,12 @@ module DataPath (
     logic [31:0] w_extendOut, w_AluSrcMuxOut, w_RFWirteDataSrcMuxOut;
     logic [31:0] w_PCAdderSrcMuxOut, w_PC_Data;
     logic [31:0] w_extendPcAddOut, w_ExtendPcAdderSrcMuxOut;
+    logic [31:0] w_trncRegFileRData, w_extDataMemRData;
     logic w_PCAdderSrcMuxSel, w_btaken;
 
 
     assign dataMemRAddr = w_ALUResult;
-    assign dataMemWData = w_RegFileRData2;
+    assign dataMemWData = w_trncRegFileRData;
 
     Register U_ProgramCounter (  // prgram counter
         .clk  (clk),
@@ -75,6 +78,13 @@ module DataPath (
         .RData2(w_RegFileRData2)
     );
 
+    truncate_dataMemWData U_Trunc_dataMemWData (
+        .WriteData(w_RegFileRData2),
+        .trncType (dataMemWDataTrncType),
+
+        .trncWriteData(w_trncRegFileRData)
+    );
+
     mux_2x1 U_MUX_ALUSrc (
         .sel(AluSrcMuxSel),
         .a  (w_RegFileRData2),
@@ -92,20 +102,27 @@ module DataPath (
         .result(w_ALUResult)
     );
 
+    extend_dataMemRData U_Extend_dataMemRData (
+        .ReadData(dataMemRData),
+        .extType (dataMemRDataExtType),
+
+        .extReadData(w_extDataMemRData)
+    );
+
     mux_4x1 U_RFWriteDataSrcMux (
         .sel(RFWriteDataSrcMuxSel),
         .a  (w_ALUResult),
-        .b  (dataMemRData),
+        .b  (w_extDataMemRData),
         .c  (w_extendOut),
         .d  (w_extendPcAddOut),
 
         .y(w_RFWirteDataSrcMuxOut)
     );
 
-    extend_imm U_Extend (
+    extend_imm U_Extend_imm (
         .instr  (machineCode[31:7]),
         // .instr  (machineCode),
-        .extType(extType),
+        .extType(immExtType),
 
         .immext(w_extendOut)
     );
@@ -236,7 +253,9 @@ module extend_imm (
 );
     always_comb begin
         case (extType)
-            3'b000: begin
+            3'b000:
+            immext = {{21{instr[31]}}, instr[30:20]};  // IL-Type           
+            3'b001: begin
                 if ((instr[14:12] == 3'b001) || (instr[14:12] == 3'b101))
                     immext = {{27{instr[31]}}, instr[24:20]};  // I-Type shift
                 else
@@ -244,15 +263,15 @@ module extend_imm (
                         {21{instr[31]}}, instr[30:20]
                     };  // I-Type           
             end
-            3'b001:
-            immext = {{21{instr[31]}}, instr[30:25], instr[11:7]};  // S-Type   
             3'b010:
+            immext = {{21{instr[31]}}, instr[30:25], instr[11:7]};  // S-Type   
+            3'b011:
             immext = {
                 {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0
             };  // B-Type
-            3'b011:
-            immext = {instr[31:12], 12'b0};  // U, UA-Type                     
             3'b100:
+            immext = {instr[31:12], 12'b0};  // U, UA-Type                     
+            3'b101:
             immext = {
                 {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0
             };  // J-Type               
@@ -264,39 +283,39 @@ module extend_imm (
 endmodule
 
 
-module extend_dataMemWdata (
-    input logic [31:7] instr,
-    input logic [ 2:0] extType,
+module truncate_dataMemWData (
+    input logic [31:0] WriteData,
+    input logic [ 1:0] trncType,
 
-    output logic [31:0] immext
+    output logic [31:0] trncWriteData
 );
     always_comb begin
-        case (extType)
-            3'b000: begin
-                if ((instr[14:12] == 3'b001) || (instr[14:12] == 3'b101))
-                    immext = {{27{instr[31]}}, instr[24:20]};  // I-Type shift
-                else
-                    immext = {
-                        {21{instr[31]}}, instr[30:20]
-                    };  // I-Type           
-            end
-            3'b001:
-            immext = {{21{instr[31]}}, instr[30:25], instr[11:7]};  // S-Type   
-            3'b010:
-            immext = {
-                {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0
-            };  // B-Type
-            3'b011:
-            immext = {instr[31:12], 12'b0};  // U, UA-Type                     
-            3'b100:
-            immext = {
-                {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0
-            };  // J-Type               
-            default: immext = 32'bx;
+        case (trncType)
+            `SB: trncWriteData = {24'b0, WriteData[7:0]};
+            `SH: trncWriteData = {16'b0, WriteData[15:0]};
+            `SW: trncWriteData = WriteData[31:0];
         endcase
     end
     // sign bit(최상위 bit) 확장
     // 양수이면 0으로 확장되고 음수이면 1로 확장됨
+endmodule
+
+
+module extend_dataMemRData (
+    input logic [31:0] ReadData,
+    input logic [ 2:0] extType,
+
+    output logic [31:0] extReadData
+);
+    always_comb begin
+        case (extType)
+            `LB:  extReadData = {{25{ReadData[7]}}, ReadData[6:0]};
+            `LH:  extReadData = {{17{ReadData[15]}}, ReadData[14:0]};
+            `LW:  extReadData = ReadData[31:0];
+            `LBU: extReadData = {24'b0, ReadData[7:0]};  // 0-extend
+            `LHU: extReadData = {16'b0, ReadData[15:0]};
+        endcase
+    end
 endmodule
 
 

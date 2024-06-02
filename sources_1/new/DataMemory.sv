@@ -15,6 +15,8 @@ module DataMemory (     // RAM
         for (i = 0; i < 64; i++) begin
             ram[i] = 100 + i;
         end
+        ram[62] = 32'h8765_4321;   // 0xf0f0 f0f0
+        ram[63] = -252645136;   // 0xf0f0 f0f0
     end
     assign rdata = ram[addr[31:2]];
 

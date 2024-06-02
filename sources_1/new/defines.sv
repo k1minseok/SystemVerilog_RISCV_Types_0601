@@ -25,3 +25,13 @@
 `define BGE 4'b0101
 `define BLTU 4'b0110
 `define BGEU 4'b0111
+
+`define LB 3'b000
+`define LH 3'b001
+`define LW 3'b010
+`define LBU 3'b100
+`define LHU 3'b101
+
+`define SB 2'b00
+`define SH 2'b01
+`define SW 2'b10
